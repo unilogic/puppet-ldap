@@ -295,6 +295,13 @@ class ldap::server::slave(
         ]
       }
   }
+  
+  file { "${ldap::params::db_prefix}":
+    ensure  => directory,
+    mode    => 0700,
+    owner   => $ldap::params::server_owner,
+    group   => $ldap::params::server_group,
+  }
 
   $msg_prefix = 'SSL enabled. You must specify'
   $msg_suffix = '(filename). It should be located at puppet:///files/ldap'
