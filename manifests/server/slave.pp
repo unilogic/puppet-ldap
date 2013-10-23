@@ -10,12 +10,9 @@
 #    Ldap tree base
 #    **Required**
 #
-#  [sync_rid]
-#    Replica ID (numeric)
-#    **Required**
-#
-#  [sync_provider]
-#    Provider URI (ldap[s]://master.ldap)
+#  [sync_providers]
+#    Hash of provider URI (ldap[s]://master.ldap) => Replica ID
+#    {'ldap://master1.ldap' => 001, {'ldap://master2.ldap' => 002}
 #    **Required**
 #
 #  [sync_updatedn]
@@ -31,6 +28,10 @@
 #    **NOTE** This should be in clear text
 #    **Required**
 #
+#  [sync_bindmethod]
+#    Bind method for connection to provider.
+#    *Optional* (defaults to 'demand')
+#
 #  [rootpw]
 #    Password for root DN (encrypted as in 'slappasswd -h "{SHA}" -s example')
 #    **Required**
@@ -38,6 +39,10 @@
 #  [rootdn]
 #    Root DN.
 #    *Optional* (defaults to 'cn=admin,${suffix}')
+#
+#  [readonly]
+#    Puts the database into "read-only" mode.
+#    *Optional* (defaults to 'off')
 #
 #  [schema_inc]
 #    Array of additional schemas that will be included.
@@ -121,6 +126,38 @@
 #    Objects search depth.
 #    *Optional* (defaults to 'sub')
 #
+#  [sync_retry]
+#    If an error occurs during replication, the consumer will attempt to
+#    reconnect according to the retry parameter which is a list of the 
+#    <retry interval> and <# of retries> pairs. 
+#    *Optional* (defaults to '3600 +')
+#
+#  [sync_starttls]
+#    The starttls parameter specifies use of the StartTLS extended operation 
+#    to establish a TLS session before Binding to the sync provider.
+#    *Optional* (defaults to 'yes')
+#
+#  [sync_tls_reqcert]
+#    tls_reqcert=never|allow|try|demand for sync connection
+#    *Optional* (defaults to 'demand')
+#
+#  [sync_mirrormode]
+#    This option puts a replica database into "mirror" mode. Update operations 
+#    will be accepted from any user, not just the updatedn. The database must 
+#    already be configured as a syncrepl consumer before this keyword may be set. 
+#    *Optional* (defaults to 'off')
+#
+#  [sync_updateref]
+#    Specify the referral to pass back when slapd is asked to modify a 
+#    replicated local database. If specified multiple times, each url is provided.
+#    *Optional* (defaults to '')
+#
+#  [sync_schemachecking]
+#    Schema checking on means that replicated entries must have a structural 
+#    objectClass, must obey to objectClass requirements in terms of required/allowed
+#    attributes, and that naming attributes and distinguished values must be present.
+#    *Optional* (defaults to 'off')
+#
 #  [enable_motd]
 #    Use motd to report the usage of this module.
 #    *Requires*: https://github.com/torian/puppet-motd.git
@@ -148,7 +185,7 @@
 #  modules_inc => [ 'syncprov' ],
 #  schema_inc  => [ 'gosa/samba3', 'gosa/gosystem' ],
 #  index_inc   => [
-#  'index memberUid            eq',
+#    'index memberUid            eq',
 #    'index mail                 eq',
 #    'index givenName            eq,subinitial',
 #    ],
@@ -166,31 +203,38 @@
 #
 class ldap::server::slave(
   $suffix,
-  $sync_rid,
-  $sync_provider,
+  $sync_providers,
   $sync_updatedn,
   $sync_binddn,
   $sync_bindpw,
+  $sync_bindmethod      = 'simple',
   $rootpw,
-  $rootdn         = "cn=admin,${suffix}",
-  $schema_inc     = [],
-  $modules_inc    = [],
-  $index_inc      = [],
-  $cnconfig_attrs = {},
-  $log_level      = '0',
-  $bind_anon      = true,
-  $ssl            = false,
-  $ssl_ca         = false,
-  $ssl_cert       = false,
-  $ssl_key        = false,
-  $sync_type      = 'refreshOnly',
-  $sync_interval  = '00:00:10:00',
-  $sync_base      = '',
-  $sync_filter    = '(objectClass=*)',
-  $sync_attrs     = '*',
-  $sync_scope     = 'sub',
-  $enable_motd    = false,
-  $ensure         = 'present') {
+  $rootdn               = "cn=admin,${suffix}",
+  $readonly             = 'off',
+  $schema_inc           = [],
+  $modules_inc          = [],
+  $index_inc            = [],
+  $cnconfig_attrs       = {},
+  $log_level            = '0',
+  $bind_anon            = true,
+  $ssl                  = false,
+  $ssl_ca               = false,
+  $ssl_cert             = false,
+  $ssl_key              = false,
+  $sync_type            = 'refreshOnly',
+  $sync_interval        = '00:00:10:00',
+  $sync_base            = '',
+  $sync_filter          = '(objectClass=*)',
+  $sync_attrs           = '*',
+  $sync_scope           = 'sub',
+  $sync_retry           = '3600 +', # Match the slapd default, syncrepl retries every hour forever 
+  $sync_starttls        = 'yes',
+  $sync_tls_reqcert     = 'demand',
+  $sync_mirrormode      = 'off',
+  $sync_updateref       = [],
+  $sync_schemachecking  = 'off',
+  $enable_motd          = false,
+  $ensure               = 'present'), {
 
   require ldap
 

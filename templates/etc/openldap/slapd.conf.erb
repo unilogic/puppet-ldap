@@ -1,6 +1,6 @@
 ###############################################################################
 # << FILE MANAGED BY PUPPET >>
-# Manual changes are likey to be overwritten
+# Manual changes are likely to be overwritten
 ###############################################################################
 
 #allow bind_v2
@@ -52,6 +52,7 @@ suffix		"<%= @suffix %>"
 directory	<%= scope.lookupvar('ldap::params::db_prefix') %>
 rootdn		"<%= @rootdn %>"
 rootpw		"<%= @rootpw %>"
+readonly    <%= @readonly %>
 
 #######################################################################
 # << Syncprov
@@ -62,21 +63,33 @@ syncprov-checkpoint <%= @syncprov_checkpoint %>
 syncprov-sessionlog <%= @syncprov_sessionlog %>
 <% end -%>
 
-<% if has_variable?('sync_rid') then -%>
-syncrepl rid=<%= @sync_rid %>
-	provider=<%= @sync_provider %>
+<% if has_variable?('sync_providers') then -%>
+    <% @sync_providers.each do |provider,rid| -%>
+syncrepl rid=<%= rid %>
+	provider=<%= provider %>
 	type=<%= @sync_type %>
 	interval=<%= @sync_interval %>
 	searchbase="<% if @sync_base == '' then %><%= @suffix %><% else %><%= @sync_base %><% end %>"
 	filter="<%= @sync_filter %>"
 	attrs="<%= @sync_attrs %>"
 	scope=<%= @sync_scope %>
-	schemachecking=off
-	bindmethod=simple
+	schemachecking=<%= @sync_schemachecking %>
+	bindmethod=<%= @sync_bindmethod %>
 	binddn="<%= @sync_binddn %>"
 	credentials="<%= @sync_bindpw %>"
-
-updateref <%= @sync_provider %>
+	retry="<%= @sync_retry %>"
+	starttls="<%= @sync_starttls %>"
+	tls_reqcert="<%= @sync_tls_reqcert %>"
+    <% end -%>
+mirrormode <%= @sync_mirrormode %>
+	<% if has_variable?('updatedn') and @updatedn != '' then -%>
+updatedn <%= @updatedn %>
+    <% end -%>
+	<% if has_variable?('sync_updateref') then -%>
+        <% @sync_updateref.each do |updateref| -%>
+updateref <%= updateref %>
+        <% end -%>
+	<% end -%>
 <% end -%>
 
 #######################################################################
